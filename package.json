@@ -15,7 +15,11 @@
     "test-linkedin": "node test-linkedin-post.js",
     "start-server": "node chat-server.js",
     "leads-now": "node gmail-workflows/daily-leads-runner.js",
-    "schedule-leads": "node gmail-workflows/leads-scheduler.js"
+    "schedule-leads": "node gmail-workflows/leads-scheduler.js",
+    "start": "npx pm2 start chat-server.js --name \"billion-automation\"",
+    "stop": "npx pm2 stop billion-automation",
+    "status": "npx pm2 status",
+    "logs": "npx pm2 logs billion-automation"
   },
   "dependencies": {
     "chalk": "^5.3.0",
@@ -28,6 +32,7 @@
     "node-edge-tts": "^1.2.10",
     "ora": "^8.0.1",
     "playwright": "^1.44.0",
+    "pm2": "^7.0.1",
     "qrcode": "^1.5.4",
     "whatsapp-web.js": "^1.34.7"
   }
