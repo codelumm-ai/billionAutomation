@@ -117,7 +117,7 @@ export class LinkedInPoster {
     try {
       // Go to feed
       const feedUrl = target === 'company' 
-        ? 'https://www.linkedin.com/company/web-nova-crew/admin/feed/' 
+        ? 'https://www.linkedin.com/company/107276202/admin/feed/' 
         : 'https://www.linkedin.com/feed/';
         
       await this.page.goto(feedUrl, { waitUntil: 'domcontentloaded' });
@@ -224,6 +224,7 @@ export class LinkedInPoster {
           ]);
           if (newPage) {
             this.page = newPage;
+            await this.page.waitForLoadState('domcontentloaded');
           }
           console.log(`  ↳ Opened article writer via: ${sel}`);
           return;
@@ -239,7 +240,7 @@ export class LinkedInPoster {
 
   async _fillArticle(title, text) {
     console.log('  ↳ Waiting for article editor...');
-    await this.page.waitForSelector('.ProseMirror, #article-editor-headline__textarea', { timeout: 15000 });
+    await this.page.waitForSelector('.ProseMirror, #article-editor-headline__textarea', { timeout: 30000 });
     
     // Fill Title
     try {

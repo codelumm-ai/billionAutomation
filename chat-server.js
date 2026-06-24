@@ -799,4 +799,19 @@ app.listen(PORT, '0.0.0.0', async () => {
   console.log(chalk.bold.green(`🚀 Chat Gateway Server is running on port ${PORT}`));
   await initBot();
   initWhatsApp().catch(err => console.error('Failed to initialize WhatsApp bot service:', err));
+
+  // Autostart Schedulers in background if enabled
+  if (process.env.START_TWITTER_SCHEDULER !== 'false') {
+    console.log(chalk.bold.blue('⏰ Autostarting Twitter Trend Scheduler in background...'));
+    import('./twitter-scheduler.js').catch(err => {
+      console.error('❌ Failed to autostart Twitter scheduler:', err.message);
+    });
+  }
+
+  if (process.env.START_LINKEDIN_SCHEDULER !== 'false') {
+    console.log(chalk.bold.blue('⏰ Autostarting LinkedIn Daily Scheduler in background...'));
+    import('./scheduler.js').catch(err => {
+      console.error('❌ Failed to autostart LinkedIn scheduler:', err.message);
+    });
+  }
 });

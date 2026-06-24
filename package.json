@@ -7,6 +7,9 @@
   "scripts": {
     "setup-linkedin": "node setup-linkedin-cookies.js",
     "setup-gmail": "node setup-gmail-cookies.js",
+    "setup-twitter": "node setup-twitter-cookies.js",
+    "grab-cookies": "node grab-cookies.js",
+    "twitter-schedule": "node twitter-scheduler.js",
     "post-now": "node daily-post.js",
     "schedule": "node scheduler.js",
     "test-linkedin": "node test-linkedin-post.js",

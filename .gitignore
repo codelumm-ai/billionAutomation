@@ -87,3 +87,7 @@ gmail-workflows/gmail-profile/
 # ChatGPT thread session mapping
 threads.json
 
+# Twitter/X cookies, profiles, and history
+*cookies.json
+chatgpt-image-automation/chrome-profile-twitter/
+posted-history.json

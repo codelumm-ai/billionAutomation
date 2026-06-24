@@ -70,6 +70,7 @@ export class ChatGPTImageBot {
     this.context = null;
     this.page = null;
     this.lastChatUrlFile = path.join(path.dirname(this.cookiesFile), 'last-chat-url.json');
+    this.profileDir = options.profileDir || path.join(path.dirname(this.cookiesFile), 'chrome-profile');
   }
 
   // ──────────────────────────────────────────────
@@ -79,7 +80,7 @@ export class ChatGPTImageBot {
     const profile = generateRandomDeviceProfile();
     console.log('🤖 Selected Real Device Profile (A to Z):', JSON.stringify(profile, null, 2));
 
-    const profileDir = path.join(path.dirname(this.cookiesFile), 'chrome-profile');
+    const profileDir = this.profileDir;
     await fs.ensureDir(profileDir);
 
     const launchArgs = [
@@ -623,11 +624,11 @@ export class ChatGPTImageBot {
       await this._waitForNotGenerating();
 
       // Focus the text input
-      await this._focusChatInput();
+      const inputEl = await this._focusChatInput();
 
       // Type the prompt - keep it simple and direct
       const finalPrompt = this._buildPrompt(prompt);
-      await this._typePrompt(finalPrompt);
+      await this._typePrompt(finalPrompt, inputEl);
 
       // Take screenshot before submitting
       await this._screenshot('before_submit');
@@ -741,27 +742,23 @@ export class ChatGPTImageBot {
   // ──────────────────────────────────────────────
   //  Type the prompt into the input
   // ──────────────────────────────────────────────
-  async _typePrompt(text) {
+  async _typePrompt(text, el = null) {
     console.log('  ↳ Preparing to type prompt via native paste...');
     try {
-      const loc = this.page.locator('#prompt-textarea');
-      if (await loc.count() > 0) {
-        await loc.click();
+      const activeEl = el || await this._focusChatInput().catch(() => null);
+      if (activeEl) {
+        await activeEl.click();
         
         // Use evaluate to clear the ProseMirror content completely
-        await this.page.evaluate(() => {
-          const editor = document.getElementById('prompt-textarea');
-          if (editor) {
-            editor.innerHTML = '<p><br></p>'; // Standard empty ProseMirror state
-          }
-        });
+        await activeEl.evaluate((editor) => {
+          editor.innerHTML = '<p><br></p>'; // Standard empty ProseMirror state
+        }).catch(() => {});
         await this.page.waitForTimeout(100);
         
-        await loc.click();
+        await activeEl.click();
         
         // Dispatch a paste event which is the most reliable way to inject text into ProseMirror
-        await this.page.evaluate((txt) => {
-           const editor = document.getElementById('prompt-textarea');
+        await activeEl.evaluate((editor, txt) => {
            const dt = new DataTransfer();
            dt.setData('text/plain', txt);
            const evt = new ClipboardEvent('paste', {
@@ -773,7 +770,6 @@ export class ChatGPTImageBot {
         }, text);
         
         console.log(`  ↳ Prompt pasted via event dispatch (${text.length} chars)`);
-        
         await this.page.waitForTimeout(500);
         return;
       }
@@ -784,9 +780,13 @@ export class ChatGPTImageBot {
     // Fallback
     console.log('  ↳ Using keyboard type fallback...');
     try {
-      const loc = this.page.locator('#prompt-textarea');
-      await loc.click();
-      await this.page.keyboard.type(text, { delay: 5 });
+      const activeEl = el || await this._focusChatInput().catch(() => null);
+      if (activeEl) {
+        await activeEl.click();
+        await this.page.keyboard.type(text, { delay: 5 });
+      } else {
+        await this.page.keyboard.type(text, { delay: 5 });
+      }
     } catch {
       await this.page.keyboard.type(text, { delay: 5 });
     }
@@ -1082,12 +1082,17 @@ export class ChatGPTImageBot {
     return this;
   }
 
-  // ──────────────────────────────────────────────
-  //  Cleanup
-  // ──────────────────────────────────────────────
   async close() {
     if (this.context) {
-      await this.context.close();
+      console.log('⏳ Closing browser context...');
+      try {
+        await Promise.race([
+          this.context.close(),
+          new Promise(resolve => setTimeout(resolve, 10000))
+        ]);
+      } catch (err) {
+        console.warn('⚠️ Warning during context close:', err.message);
+      }
       this.browser = this.context = this.page = null;
       console.log('👋 Browser closed');
     }
