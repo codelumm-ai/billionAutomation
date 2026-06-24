@@ -17,6 +17,7 @@ import fs from 'fs-extra';
 import { fileURLToPath } from 'url';
 import { TwitterPoster } from './twitter-poster.js';
 import { ChatGPTImageBot } from './chatgpt-image-automation/bot.js';
+import { queryChatGPTCompletions } from './whatsapp-bot.js';
 
 dotenv.config({ override: true });
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -71,6 +72,62 @@ function buildImagePrompt(trendName) {
   );
 }
 
+// ── Politics & News Filter ────────────────────────────────────
+
+async function filterPoliticalTrends(trends) {
+  console.log(chalk.gray(`🔍 Filtering ${trends.length} trends for Indian politics/news context...`));
+  if (trends.length === 0) return [];
+
+  const candidateTrends = [];
+  try {
+    const listText = trends.map((t, idx) => `${idx + 1}. Name: "${t.name}", Cat: "${t.category || ''}"`).join('\n');
+    const prompt = `Identify which of the following trending topics in India are related to Indian politics, political parties, leaders, government policy, national news, crime/accidents, or heated public/governance debates:
+${listText}
+
+Return ONLY a JSON array of the 1-based index numbers of the matching trends (e.g. [1, 3]). If none match, return []. Do NOT include any explanations, code block formatting, or intros.`;
+
+    const responseText = await queryChatGPTCompletions(prompt);
+    const cleanJson = responseText.replace(/```json|```/g, '').trim();
+    const indices = JSON.parse(cleanJson);
+    
+    if (Array.isArray(indices)) {
+      for (const idx of indices) {
+        const actualIndex = idx - 1;
+        if (trends[actualIndex]) {
+          console.log(chalk.green(`  ↳ ChatGPT classified as political/news: "${trends[actualIndex].name}"`));
+          candidateTrends.push(trends[actualIndex]);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn(chalk.yellow(`  ⚠️ ChatGPT classification failed: ${err.message}. Falling back to strict local keyword matching.`));
+    
+    const STRICT_KEYWORDS = [
+      'modi', 'yogi', 'rahul', 'gandhi', 'kejriwal', 'mamata', 'akhilesh', 'shah', 'bjp', 'congress', 'aap', 
+      'sp', 'bsp', 'rjd', 'nitish', 'lalu', 'parliament', 'lok sabha', 'rajya sabha', 'election', 'vote', 'voter', 
+      'government', 'policy', 'minister', 'scam', 'court', 'police', 'protest', 'supreme court', 'high court', 
+      'arrest', 'cbi', 'ed', 'raid', 'crackdown', 'scandal', 'chief minister', 'prime minister', 'news', 'breaking', 
+      'democracy', 'opposition', 'constitution', 'samvidhan', 'politics', 'rajniti'
+    ];
+
+    for (const trend of trends) {
+      const nameLower = trend.name.toLowerCase();
+      const matchesStrict = STRICT_KEYWORDS.some(kw => {
+        const regex = new RegExp(`\\b${kw}\\b`, 'i');
+        return regex.test(nameLower) || (nameLower.startsWith('#') && nameLower.includes(kw));
+      });
+      if (matchesStrict) {
+        candidateTrends.push(trend);
+      }
+    }
+  }
+
+  // Preserve the original order of trends
+  candidateTrends.sort((a, b) => trends.indexOf(a) - trends.indexOf(b));
+  console.log(chalk.green(`🎯 Filtered down to ${candidateTrends.length} political/news trends.`));
+  return candidateTrends;
+}
+
 // ── Pipeline ──────────────────────────────────────────────────
 
 let isPipelineRunning = false;
@@ -104,23 +161,31 @@ async function runPipeline() {
     // 3. Filter out already-posted trend names
     let unpostedTrends = trends.filter(t => !history.trends.includes(t.name));
 
-    // If all trends have been posted, reset the trend history (but keep image URL history)
-    if (unpostedTrends.length === 0) {
-      console.log(chalk.yellow('🔄 All scraped trends have been posted before. Resetting trend history for fresh rotation...'));
+    // Filter unposted trends to ONLY politics/news
+    let politicalTrends = await filterPoliticalTrends(unpostedTrends);
+
+    // If no unposted political trends available, try resetting trend history to see if older ones can be re-posted
+    if (politicalTrends.length === 0) {
+      console.log(chalk.yellow('🔄 No new political trends available. Resetting trend history to check for older ones...'));
       history.trends = [];
       await saveHistory(history);
-      unpostedTrends = [...trends];
+      politicalTrends = await filterPoliticalTrends(trends);
     }
 
-    console.log(chalk.green(`🎯 ${unpostedTrends.length} unposted trends available: ${unpostedTrends.map(t => t.name).join(' | ')}`));
+    if (politicalTrends.length === 0) {
+      console.log(chalk.yellow('⚠️ No political/news trends found in the explore list at all. Skipping this interval.'));
+      return;
+    }
 
-    // 4. Loop through unposted trends to find one with a unique image
+    console.log(chalk.green(`🎯 ${politicalTrends.length} political/news trends available: ${politicalTrends.map(t => t.name).join(' | ')}`));
+
+    // 4. Loop through political trends to find one with a unique image
     let selectedTrend = null;
     let mediaTweet = null;
     let imagePath = null;
     let tweetText = null;
 
-    for (const trend of unpostedTrends) {
+    for (const trend of politicalTrends) {
       console.log(chalk.bold.cyan(`\n🔎 Checking trend: "${trend.name}" (${trend.posts || 'unknown posts'})`));
 
       try {
@@ -143,7 +208,7 @@ async function runPipeline() {
 
     // 5. Fallback: if no unique image found across all trends, use top unposted trend + DALL-E
     if (!selectedTrend) {
-      selectedTrend = unpostedTrends[0];
+      selectedTrend = politicalTrends[0];
       console.log(chalk.blue(`\nℹ️ No unique images found across any trend. Falling back to DALL-E for: "${selectedTrend.name}"`));
 
       tweetText = await poster.generateViralTweet(selectedTrend, null);

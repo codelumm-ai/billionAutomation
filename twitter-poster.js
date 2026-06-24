@@ -315,13 +315,13 @@ export class TwitterPoster {
   // ──────────────────────────────────────────────
   async generateViralTweet(trend, contextText = null) {
     console.log(`🤖 Generating viral Hindi tweet content for trend: "${trend.name}"...`);
-    let prompt = `Write a short, highly engaging, manipulative, and clickbaity/viral tweet in HINDI (using Devanagari script) about "${trend.name}" (which is currently trending on Twitter). 
+    let prompt = `Write a short, highly sensational, and aggressive news/political tweet in HINDI (using Devanagari script) about "${trend.name}" (which is currently trending). 
 
 Style & Guidelines:
-1. Language: Write entirely in Hindi (Devanagari script). Make it sound natural, conversational, and appealing to a Hindi-speaking audience.
-2. Tone: Manipulative, curiosity-inducing, thought-provoking, or controversial in the style of top tech/business creators. Start with a hook (e.g. "क्या आप जानते हैं...", "सच तो यह है...", "एक कड़वा सच...").
+1. Language: Write entirely in Hindi (Devanagari script). Use vocabulary and style typical of top Hindi news channels and aggressive political commentators (direct, bold, sensational, and hard-hitting).
+2. Tone: Aggressive, affirmative, and authoritative. Do NOT ask questions (absolutely NO "क्या आप जानते हैं" or question marks). Use strong breaking-news style hooks (e.g., "बड़ी खबर:...", "बड़ा खुलासा:...", "साफ है कि...", "सीधा प्रहार:...", "ये है असली सच:...").
 3. Length: Strictly under 240 characters so it fits easily within the limit.
-4. Hashtags: Include 1-2 relevant trending hashtags in Hindi or English (e.g. #Tech, #Startups).
+4. Hashtags: Include 1-2 relevant trending politics/news hashtags in Hindi or English (e.g. #Politics, #BreakingNews, or the trend hashtag itself).
 5. CRITICAL: Output ONLY the raw tweet text itself. Do NOT include preambles, intros, quotes, or "Here is a tweet draft:". Just the Hindi tweet.`;
 
     if (contextText) {
